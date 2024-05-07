@@ -1,3 +1,5 @@
+.vscode/launch.json
+
 # Cargo build dir
 /target
 

@@ -294,6 +294,7 @@ enum Shell {
     #[default]
     Bash,
     Python,
+    Zsh,
     #[value(skip)]
     Custom {
         program: String,
@@ -315,6 +316,7 @@ impl Display for Shell {
         match self {
             Self::Bash => f.write_str("bash"),
             Self::Python => f.write_str("python"),
+            Self::Zsh => f.write_str("zsh"),
             Self::Custom { program, args, .. } => f.write_str(
                 &iter::once(program)
                     .chain(args)
@@ -342,7 +344,7 @@ impl Merge for Shell {
 impl Shell {
     fn line_split(&self) -> &str {
         match self {
-            Self::Bash | Self::Python => " \\",
+            Self::Bash | Self::Python | Self::Zsh => " \\",
             Self::Custom { line_split, .. } => line_split,
         }
     }
@@ -351,6 +353,7 @@ impl Shell {
         match self {
             Self::Bash => "bash",
             Self::Python => "python",
+            Self::Zsh => "zsh",
             Self::Custom { program, .. } => program,
         }
     }
@@ -370,6 +373,7 @@ impl Shell {
         match self {
             Self::Bash => spawn::bash(timeout, environment, width, height),
             Self::Python => spawn::python(timeout, environment, width, height),
+            Self::Zsh => spawn::zsh(timeout, environment, width, height),
             Self::Custom {
                 program,
                 args,

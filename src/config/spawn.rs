@@ -19,6 +19,38 @@ use os_str_bytes::OsStrBytes;
 
 use crate::asciicast::Event;
 
+pub(super) fn zsh<I, K, V>(
+    timeout: Duration,
+    environment: I,
+    width: u16,
+    height: u16,
+) -> color_eyre::Result<ShellSession>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    const PROMPT: &str = "AUTOCAST_PROMPT";
+    const PROMPT_COMMAND: &str =
+        "PS1=AUTOCAST_PROMPT; unset PROMPT_COMMAND; unset zle_bracketed_paste";
+
+    let mut command = Command::new("zsh");
+    command.arg("--no-rcs");
+    command
+        .envs(environment)
+        .env("PS1", PROMPT)
+        .env("PROMPT_COMMAND", PROMPT_COMMAND);
+
+    ShellSession::spawn(
+        command,
+        width,
+        height,
+        String::from(PROMPT),
+        Some(String::from("exit")),
+        timeout,
+    )
+}
+
 pub(super) fn bash<I, K, V>(
     timeout: Duration,
     environment: I,
