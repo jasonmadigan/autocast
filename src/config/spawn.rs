@@ -1,23 +1,54 @@
 use std::{
     ffi::OsStr,
     io::{self, BufRead, BufReader, Read, Write},
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     process::Command,
     time::{Duration, Instant},
 };
 
 use color_eyre::eyre::{self, Context};
+
 #[cfg(unix)]
 use expectrl::process::unix::UnixProcess;
 #[cfg(windows)]
 use expectrl::process::windows::WinProcess;
-use expectrl::{
-    process::{NonBlocking, Process},
-    session::{OsProcess, OsProcessStream},
-};
+use expectrl::process::{NonBlocking, Process};
+use expectrl::session::{OsProcess, OsProcessStream};
 use os_str_bytes::OsStrBytes;
 
+
 use crate::asciicast::Event;
+
+pub(super) fn zsh<I, K, V>(
+    timeout: Duration,
+    environment: I,
+    width: u16,
+    height: u16,
+) -> color_eyre::Result<ShellSession>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    const PROMPT: &str = "AUTOCAST_PROMPT";
+    const PROMPT_COMMAND: &str = "PS1=AUTOCAST_PROMPT; unset PROMPT_COMMAND; bindkey -v";
+
+    let mut command = Command::new("zsh");
+    command.arg("--no-rcs");
+    command
+        .envs(environment)
+        .env("PS1", PROMPT)
+        .env("PROMPT_COMMAND", PROMPT_COMMAND);
+
+    ShellSession::spawn(
+        command,
+        width,
+        height,
+        String::from(PROMPT),
+        Some(String::from("exit")),
+        timeout,
+    )
+}
 
 pub(super) fn bash<I, K, V>(
     timeout: Duration,
@@ -78,6 +109,7 @@ pub struct ShellSession<P = OsProcess, S = OsProcessStream> {
     prompt: String,
     quit_command: Option<String>,
     timeout: Duration,
+    #[allow(dead_code)]
     process: P,
     stream: Stream<S>,
     last_event: Instant,
@@ -256,7 +288,13 @@ pub trait Wait: Process {
 #[cfg(unix)]
 impl Wait for UnixProcess {
     fn wait(&self, _: Duration) -> color_eyre::Result<()> {
-        self.deref().wait().map(|_| ()).map_err(Into::into)
+        if let Err(e) = self.is_alive() {
+            return Err(color_eyre::Report::new(e).wrap_err("Failed to check process aliveness"));
+        }
+
+        self.status()
+            .map(|_| ())
+            .map_err(|e| color_eyre::Report::new(e).wrap_err("Failed to retrieve process status"))
     }
 }
 
