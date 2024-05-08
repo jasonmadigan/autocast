@@ -1,21 +1,21 @@
 use std::{
     ffi::OsStr,
     io::{self, BufRead, BufReader, Read, Write},
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     process::Command,
     time::{Duration, Instant},
 };
 
 use color_eyre::eyre::{self, Context};
-
 #[cfg(unix)]
 use expectrl::process::unix::UnixProcess;
 #[cfg(windows)]
 use expectrl::process::windows::WinProcess;
-use expectrl::process::{NonBlocking, Process};
-use expectrl::session::{OsProcess, OsProcessStream};
+use expectrl::{
+    process::{NonBlocking, Process},
+    session::{OsProcess, OsProcessStream},
+};
 use os_str_bytes::OsStrBytes;
-
 
 use crate::asciicast::Event;
 
@@ -31,7 +31,7 @@ where
     V: AsRef<OsStr>,
 {
     const PROMPT: &str = "AUTOCAST_PROMPT";
-    const PROMPT_COMMAND: &str = "PS1=AUTOCAST_PROMPT; unset PROMPT_COMMAND; bindkey -v";
+    const PROMPT_COMMAND: &str = "PS1=AUTOCAST_PROMPT; unset PROMPT_COMMAND; unset zle_bracketed_paste";
 
     let mut command = Command::new("zsh");
     command.arg("--no-rcs");
@@ -109,7 +109,6 @@ pub struct ShellSession<P = OsProcess, S = OsProcessStream> {
     prompt: String,
     quit_command: Option<String>,
     timeout: Duration,
-    #[allow(dead_code)]
     process: P,
     stream: Stream<S>,
     last_event: Instant,
@@ -288,13 +287,14 @@ pub trait Wait: Process {
 #[cfg(unix)]
 impl Wait for UnixProcess {
     fn wait(&self, _: Duration) -> color_eyre::Result<()> {
-        if let Err(e) = self.is_alive() {
-            return Err(color_eyre::Report::new(e).wrap_err("Failed to check process aliveness"));
-        }
+        self.deref().wait().map(|_| ()).map_err(Into::into)
+    }
+}
 
-        self.status()
-            .map(|_| ())
-            .map_err(|e| color_eyre::Report::new(e).wrap_err("Failed to retrieve process status"))
+#[cfg(target_os = "macos")]
+impl Wait for UnixProcess {
+    fn wait(&self, _: Duration) -> color_eyre::Result<()> {
+        self.deref().wait().map(|_| ()).map_err(Into::into)
     }
 }
 
