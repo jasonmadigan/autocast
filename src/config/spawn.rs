@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<P: Process + Wait, S: Write> ShellSession<P, S> {
+impl<P: Process + Wait, S: Read + Write + NonBlocking> ShellSession<P, S> {
     /// Sends the quit command to the shell.
     /// Blocks until the shell process has exited.
     pub fn quit(&mut self) -> color_eyre::Result<()> {
@@ -248,6 +248,16 @@ impl<P: Process + Wait, S: Write> ShellSession<P, S> {
             let quit_command = quit_command.clone();
             self.send_line(quit_command)
                 .wrap_err("error sending quit command to shell")?;
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let mut buffer = [0; 1024];
+            while let Ok(bytes_read) = self.stream.read(&mut buffer) {
+                if bytes_read == 0 {
+                    break;
+                }
+            }
         }
 
         self.process
