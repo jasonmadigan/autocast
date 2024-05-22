@@ -32,7 +32,7 @@ where
 {
     const PROMPT: &str = "AUTOCAST_PROMPT";
     const PROMPT_COMMAND: &str =
-        "PS1=AUTOCAST_PROMPT; unset PROMPT_COMMAND; unset zle_bracketed_paste";
+        "PS1=AUTOCAST_PROMPT; unsetopt PROMPT_COMMAND; setopt NO_PROMPT_CR";
 
     let mut command = Command::new("zsh");
     command.arg("--no-rcs");
