@@ -12,6 +12,7 @@ use crate::config::Shell;
 enum Variant {
     Bash,
     Python,
+    Zsh,
     Custom,
 }
 
@@ -41,6 +42,7 @@ impl<'de> de::Visitor<'de> for Visitor {
         match v {
             "bash" | "Bash" => Ok(Shell::Bash),
             "python" | "Python" => Ok(Shell::Python),
+            "zsh" | "Zsh" => Ok(Shell::Zsh),
             _ => Err(E::invalid_value(
                 de::Unexpected::Str(v),
                 &"supported shell (e.g. bash or python) or a custom shell",
@@ -55,8 +57,9 @@ impl<'de> de::Visitor<'de> for Visitor {
     fn visit_enum<A: de::EnumAccess<'de>>(self, data: A) -> Result<Self::Value, A::Error> {
         let (tag, variant) = data.variant()?;
         match tag {
-            Variant::Bash => variant.unit_variant().map(|_| Shell::Bash),
-            Variant::Python => variant.unit_variant().map(|_| Shell::Python),
+            Variant::Bash => variant.unit_variant().map(|()| Shell::Bash),
+            Variant::Python => variant.unit_variant().map(|()| Shell::Python),
+            Variant::Zsh => variant.unit_variant().map(|()| Shell::Zsh),
             Variant::Custom => variant.struct_variant(CUSTOM_FIELDS, CustomVisitor),
         }
     }
@@ -109,6 +112,7 @@ mod tests {
     fn visit_str() -> serde_yaml::Result<()> {
         assert_eq!(serde_yaml::from_str::<Shell>("bash")?, Shell::Bash);
         assert_eq!(serde_yaml::from_str::<Shell>("python")?, Shell::Python);
+        assert_eq!(serde_yaml::from_str::<Shell>("zsh")?, Shell::Zsh);
         assert!(serde_yaml::from_str::<Shell>("custom").is_err());
         Ok(())
     }

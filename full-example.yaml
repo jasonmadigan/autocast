@@ -23,7 +23,7 @@ settings:
 
   # The shell to use when running instructions.
   # The default is "bash".
-  # Builtin shell configurations are "bash" and "python".
+  # Builtin shell configurations are "bash", "python", and "zsh".
   # Contributions for more builtin shell configurations welcome!
   # Can be a string for a builtin shell configuration,
   # a map for a custom shell, or a tagged value.
@@ -32,6 +32,7 @@ settings:
   # shell: Bash
   # shell: !Bash
   # shell: python
+  # shell: zsh
   # shell:
   #   program: bash
   #   prompt: "$ "
@@ -65,7 +66,7 @@ settings:
     line_split: ' \'
     # The command to give the shell when all instructions are finished.
     # If not provided the last instruction must cause the shell process
-    # to finish, otherwise autocast will hang waiting for it to finish.
+    # to finish, otherwise autocast will return an error after the timeout.
     # Optional, must be a string.
     quit_command: exit
 
@@ -111,6 +112,7 @@ settings:
   # Maximum amount of time waiting for a prompt (max amount of time a
   # non-interactive command can run, or, for interactive commands, max amount of
   # time to wait for the prompt after all keys) before autocast returns with an error.
+  # Also limits the time waiting for the shell to exit after all instructions.
   # Time format is explained at the beginning of the file.
   # Defaults to 30s.
   timeout: 30s

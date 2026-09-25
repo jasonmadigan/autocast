@@ -31,9 +31,15 @@ jobs:
       - run: cargo clippy -- -Dwarnings
 
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - name: Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --verbose
+      - name: Install zsh
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+      - run: cargo test --locked --verbose

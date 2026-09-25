@@ -38,7 +38,7 @@ fn parse_control<E: de::Error>(control: &str) -> Result<ControlCode, E> {
         .chars()
         .exactly_one()
         .map_err(|_| E::invalid_value(Unexpected::Str(control), &"single control char"))?;
-    char.try_into().map_err(|_| invalid_control(char))
+    char.try_into().map_err(|()| invalid_control(char))
 }
 
 fn control_from_variant<'de, V>(variant: V) -> Result<ControlCode, V::Error>
@@ -47,7 +47,7 @@ where
     V::Error: de::Error,
 {
     let char: char = variant.newtype_variant()?;
-    char.try_into().map_err(|_| invalid_control(char))
+    char.try_into().map_err(|()| invalid_control(char))
 }
 
 fn invalid_control<E: de::Error>(char: char) -> E {

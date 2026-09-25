@@ -242,7 +242,7 @@ impl Command {
         shell_session.reset();
         match self {
             Self::SingleLine(line) => shell_session.send_line(line),
-            Self::MultiLine(lines) => shell_session.send_line(&lines.join(" ")),
+            Self::MultiLine(lines) => shell_session.send_line(lines.join(" ")),
             Self::Control(control) => shell_session.send(control),
         }
     }

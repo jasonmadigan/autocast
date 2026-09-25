@@ -137,7 +137,7 @@ impl Header {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Event {
     pub time: Duration,
-    pub event_type: EventType,
+    pub kind: EventType,
     pub data: String,
 }
 
@@ -146,7 +146,7 @@ impl Serialize for Event {
         let mut event = serializer.serialize_seq(Some(3))?;
 
         event.serialize_element(&self.time.as_secs_f64())?;
-        event.serialize_element(&self.event_type)?;
+        event.serialize_element(&self.kind)?;
         event.serialize_element(&self.data)?;
 
         event.end()
@@ -157,7 +157,7 @@ impl Event {
     pub fn output(time: Duration, data: String) -> Self {
         Self {
             time,
-            event_type: EventType::Output,
+            kind: EventType::Output,
             data,
         }
     }
@@ -165,7 +165,7 @@ impl Event {
     pub fn outputln(time: Duration) -> Self {
         Self {
             time,
-            event_type: EventType::Output,
+            kind: EventType::Output,
             data: String::from("\r\n"),
         }
     }
@@ -173,7 +173,7 @@ impl Event {
     pub fn marker(time: Duration, data: String) -> Self {
         Self {
             time,
-            event_type: EventType::Marker,
+            kind: EventType::Marker,
             data,
         }
     }

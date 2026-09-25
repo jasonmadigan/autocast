@@ -35,7 +35,7 @@ pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duratio
 #[derive(Debug)]
 struct Visitor;
 
-impl<'de> de::Visitor<'de> for Visitor {
+impl de::Visitor<'_> for Visitor {
     type Value = Duration;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

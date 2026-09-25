@@ -14,7 +14,7 @@ Demo created with autocast, see [demo.yaml](./demo.yaml). The demo is also viewa
 
 - Generates asciicast files from the settings and instructions in an input YAML file.
 - Fast, run time is dependent upon the run time of the shell commands, with minimal overhead.
-- Use bash, python, or a custom shell.
+- Use bash, python, zsh, or a custom shell.
 - Customize the output's prompt and secondary prompt, separate from the shell's.
 - Use hidden commands for automated setup and cleanup.
 
@@ -47,7 +47,7 @@ Options:
   -t, --title <TITLE>
           Title of the asciicast
       --shell <SHELL>
-          Shell to use for running commands [default: bash] [possible values: bash, python]
+          Shell to use for running commands [default: bash] [possible values: bash, python, zsh]
   -e, --environment <NAME=VALUE>
           Environment variables to use in the shell process
       --environment-capture <ENV_VAR>
@@ -59,7 +59,7 @@ Options:
       --secondary-prompt <SECONDARY_PROMPT>
           The shell secondary prompt to use in the asciicast output [default: "> "]
       --timeout <TIMEOUT>
-          Maximum amount of time to let a shell command run before returning with an error [default: 30s]
+          Maximum time to wait for a shell command or shell shutdown before returning an error [default: 30s]
       --overwrite
           Overwrite output file if it already exists
   -h, --help
@@ -102,7 +102,7 @@ Instruction Kinds:
 
 Contributions/suggestions are very welcome and appreciated!
 Feel free to create an [issue](https://github.com/k9withabone/autocast/issues), [discussion](https://github.com/k9withabone/autocast/discussions), or [pull request](https://github.com/k9withabone/autocast/pulls).
-Especially in need of default configurations for other shells (zsh, fish, etc.) as I have no experience with shells other than bash.
+Especially in need of default configurations for other shells (fish, etc.) as I have no experience with shells other than bash.
 
 ## Inspiration
 

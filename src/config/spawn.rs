@@ -1,8 +1,9 @@
 use std::{
     ffi::OsStr,
     io::{self, BufRead, BufReader, Read, Write},
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     process::Command,
+    thread,
     time::{Duration, Instant},
 };
 
@@ -12,12 +13,45 @@ use expectrl::process::unix::UnixProcess;
 #[cfg(windows)]
 use expectrl::process::windows::WinProcess;
 use expectrl::{
-    process::{NonBlocking, Process},
+    process::{Healthcheck, NonBlocking, Process},
     session::{OsProcess, OsProcessStream},
 };
 use os_str_bytes::OsStrBytes;
 
 use crate::asciicast::Event;
+
+pub(super) fn zsh<I, K, V>(
+    timeout: Duration,
+    environment: I,
+    width: u16,
+    height: u16,
+) -> color_eyre::Result<ShellSession>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    const PROMPT: &str = "AUTOCAST_PROMPT";
+    let mut command = Command::new("zsh");
+    // Autocast renders command input itself; ZLE would echo it a second time.
+    command.args([
+        "--no-rcs",
+        "--no-zle",
+        "--no-prompt-cr",
+        "--no-prompt-sp",
+        "--interactive-comments",
+    ]);
+    command.envs(environment).env("PS1", PROMPT);
+
+    ShellSession::spawn(
+        command,
+        width,
+        height,
+        String::from(PROMPT),
+        Some(String::from("exit")),
+        timeout,
+    )
+}
 
 pub(super) fn bash<I, K, V>(
     timeout: Duration,
@@ -208,9 +242,9 @@ where
     }
 }
 
-impl<P: Process + Wait, S: Write> ShellSession<P, S> {
+impl<P: Process + Healthcheck, S: Read + Write + NonBlocking> ShellSession<P, S> {
     /// Sends the quit command to the shell.
-    /// Blocks until the shell process has exited.
+    /// Drains output until the shell process exits or the timeout elapses.
     pub fn quit(&mut self) -> color_eyre::Result<()> {
         if let Some(quit_command) = &self.quit_command {
             let quit_command = quit_command.clone();
@@ -218,11 +252,38 @@ impl<P: Process + Wait, S: Write> ShellSession<P, S> {
                 .wrap_err("error sending quit command to shell")?;
         }
 
-        self.process
-            .wait(self.timeout)
-            .wrap_err("error waiting for shell to stop")?;
+        self.stream
+            .set_non_blocking()
+            .wrap_err("could not make shell output non-blocking")?;
+        let start = Instant::now();
+        let mut buffer = [0; 8192];
+        loop {
+            if !self
+                .process
+                .is_alive()
+                .wrap_err("error checking whether shell has stopped")?
+            {
+                return Ok(());
+            }
+            if start.elapsed() >= self.timeout {
+                eyre::bail!("timeout waiting for shell to stop");
+            }
 
-        Ok(())
+            // A PTY can block the child in write/close until its output is drained
+            // (even a small amount on macOS). Read one chunk per status/timeout
+            // check so a continuously writing child cannot defeat the deadline.
+            match self.stream.read(&mut buffer) {
+                Ok(0) => {}
+                Ok(_) => continue,
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error).wrap_err("error draining shell output"),
+            }
+            // EOF alone is not proof that the child has exited.
+            thread::sleep(
+                Duration::from_millis(1).min(self.timeout.saturating_sub(start.elapsed())),
+            );
+        }
     }
 }
 
@@ -245,29 +306,6 @@ impl WindowSize for WinProcess {
         let width = width.try_into().unwrap_or(i16::MAX);
         let height = height.try_into().unwrap_or(i16::MAX);
         self.deref_mut().resize(width, height).map_err(Into::into)
-    }
-}
-
-pub trait Wait: Process {
-    /// Waits for process to finish.
-    fn wait(&self, timeout: Duration) -> color_eyre::Result<()>;
-}
-
-#[cfg(unix)]
-impl Wait for UnixProcess {
-    fn wait(&self, _: Duration) -> color_eyre::Result<()> {
-        self.deref().wait().map(|_| ()).map_err(Into::into)
-    }
-}
-
-#[cfg(windows)]
-impl Wait for WinProcess {
-    fn wait(&self, timeout: Duration) -> color_eyre::Result<()> {
-        let timeout = timeout.as_millis().try_into().unwrap_or(u32::MAX);
-        self.deref()
-            .wait(Some(timeout))
-            .map(|_| ())
-            .map_err(Into::into)
     }
 }
 
@@ -352,7 +390,7 @@ mod tests {
 
     const TEST: &str = "test";
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     fn bash() -> color_eyre::Result<ShellSession> {
         super::bash(
             Duration::from_millis(500),
@@ -392,7 +430,7 @@ mod tests {
         OsStr::new(TEST).to_raw_bytes()
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(unix)]
     #[test]
     fn bash_output_and_timing() -> color_eyre::Result<()> {
         let mut shell_session = bash()?;
